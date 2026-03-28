@@ -1,0 +1,146 @@
+# Values for the remram44/matrix chart (Synapse + Element)
+matrix:
+  homeserverConfig:
+    server_name: example.org
+    public_baseurl: https://chat.example.org/
+    web_client_location: https://chat.example.org/
+    email:
+      app_name: example.org
+    enable_registration: false
+    allow_public_rooms_over_federation: true
+    turn_uris:
+      - "turn:turn.example.org:3478?transport=udp"
+      - "turn:turn.example.org:3478?transport=tcp"
+    # Set via --set or a separate secrets values file — never commit real values.
+    turn_shared_secret: ""
+    turn_user_lifetime: 86400000
+    turn_allow_guests: true
+    federation:
+      enabled: true
+    extra_well_known_client_content:
+      "org.matrix.msc4143.rtc_foci":
+        - type: livekit
+          livekit_service_url: https://rtc.example.org/livekit/jwt
+    experimental_features:
+      msc3266_enabled: true
+      msc4222_enabled: true
+    max_event_delay_duration: 24h
+    rc_message:
+      per_second: 0.5
+      burst_count: 30
+    rc_delayed_event_mgmt:
+      per_second: 1
+      burst_count: 20
+    matrix_authentication_service:
+      enabled: true
+      endpoint: http://mas:8080/
+      # Must match mas.secrets.sharedSecret — set via --set or secrets file.
+      secret: ""
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+    hosts:
+      - chat.example.org
+    tls:
+      - secretName: matrix-chat-tls
+        hosts:
+          - chat.example.org
+  element:
+    config:
+      default_server_config:
+        m.homeserver:
+          base_url: https://chat.example.org
+          server_name: example.org
+      feature_flags:
+        feature_group_calls: true
+      element_call:
+        use_exclusively: false
+        url: https://call.example.org
+    ingress:
+      enabled: true
+      className: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-production
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+      host: chat.example.org
+      tls:
+        - secretName: matrix-chat-tls
+          hosts:
+            - chat.example.org
+
+# Values for the local mas subchart
+mas:
+  mas:
+    publicBaseUrl: https://auth.example.org/
+  matrix:
+    homeserver: example.org
+    # Service name of the remram44 matrix chart — typically <release>-matrix
+    endpoint: http://matrix-x-matrix:80
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+    hosts:
+      - host: auth.example.org
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: mas-auth-tls
+        hosts:
+          - auth.example.org
+  compatIngress:
+    enabled: true
+    className: traefik
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.priority: "100"
+    host: chat.example.org
+    tls:
+      - secretName: matrix-chat-tls
+        hosts:
+          - chat.example.org
+
+# Values for the local rtc subchart
+rtc:
+  livekit:
+    url: wss://rtc.example.org/livekit/sfu
+    fullAccessHomeservers: example.org
+    # Set via --set or a separate secrets values file — never commit real values.
+    key: ""
+    secret: ""
+  ingress:
+    className: traefik
+    host: rtc.example.org
+    tlsSecret: matrixrtc-rtc-tls
+    certIssuer: letsencrypt-production
+
+# Values for the local static_wellknown subchart
+static_wellknown:
+  wellKnown:
+    server:
+      host: "chat.example.org:443"
+    client:
+      homeserverBaseUrl: "https://chat.example.org"
+      rtcFociUrl: "https://rtc.example.org/livekit/jwt"
+      authIssuer: "https://auth.example.org/"
+      authAccount: "https://auth.example.org/account"
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+    host: example.org
+    tls:
+      secretName: matrix-wellknown-tls
