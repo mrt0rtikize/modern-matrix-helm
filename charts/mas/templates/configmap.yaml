@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mas.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mas.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    http:
+      public_base: {{ .Values.mas.publicBaseUrl }}
+      issuer: {{ .Values.mas.publicBaseUrl }}
+      listeners:
+        - name: web
+          resources:
+            - name: discovery
+            - name: human
+            - name: oauth
+            - name: compat
+            - name: graphql
+            - name: assets
+            - name: health
+          binds:
+            - address: "[::]:8080"
+
+    database:
+      host: {{ include "mas.postgresql.fullname" . }}
+      port: 5432
+      username: {{ .Values.postgresql.username }}
+      database: {{ .Values.postgresql.database }}
+      max_connections: 10
+      connect_timeout: 30
+      idle_timeout: 600
+      password_file: /etc/mas/secrets/mas-db-password
+
+    matrix:
+      homeserver: {{ .Values.matrix.homeserver }}
+      endpoint: {{ .Values.matrix.endpoint }}
+      secret_file: /etc/mas/secrets/shared-secret
+
+    passwords:
+      enabled: true
+      minimum_complexity: 3
+      schemes:
+        - version: 1
+          algorithm: bcrypt
+          unicode_normalization: true
+        - version: 2
+          algorithm: argon2id
+
+    secrets:
+      encryption_file: /etc/mas/secrets/encryption-key
+      keys:
+        - key_file: /etc/mas/secrets/signing-key.pem
+
+    account:
+      email_change_allowed: {{ .Values.account.emailChangeAllowed }}
+      displayname_change_allowed: {{ .Values.account.displaynameChangeAllowed }}
+      password_registration_enabled: {{ .Values.account.passwordRegistrationEnabled }}
+      password_registration_email_required: {{ .Values.account.passwordRegistrationEmailRequired }}
+      password_change_allowed: {{ .Values.account.passwordChangeAllowed }}
+      password_recovery_enabled: {{ .Values.account.passwordRecoveryEnabled }}
+      account_deactivation_allowed: {{ .Values.account.accountDeactivationAllowed }}

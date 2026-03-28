@@ -1,0 +1,69 @@
+{{- if .Values.compatIngress.enabled }}
+# Routes legacy Matrix login/logout/refresh on the Synapse domain to MAS.
+# Priority 100 overrides the Synapse Ingress for these specific paths.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "mas.fullname" . }}-compat
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mas.labels" . | nindent 4 }}
+  {{- with .Values.compatIngress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.compatIngress.className }}
+  {{- if .Values.compatIngress.tls }}
+  tls:
+    {{- toYaml .Values.compatIngress.tls | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.compatIngress.host | quote }}
+      http:
+        paths:
+          # v3 endpoints
+          - path: /_matrix/client/v3/login
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "mas.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /_matrix/client/v3/logout
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "mas.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /_matrix/client/v3/refresh
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "mas.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+          # r0 legacy endpoints
+          - path: /_matrix/client/r0/login
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "mas.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /_matrix/client/r0/logout
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "mas.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /_matrix/client/r0/refresh
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "mas.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

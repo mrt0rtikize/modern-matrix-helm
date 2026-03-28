@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mas.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mas.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "mas.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mas.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: mas
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - server
+          env:
+            - name: MAS_CONFIG
+              value: /etc/mas/config/config.yaml
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /etc/mas/config
+              readOnly: true
+            - name: secrets
+              mountPath: /etc/mas/secrets
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources.mas | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "mas.fullname" . }}-config
+        - name: secrets
+          secret:
+            secretName: {{ include "mas.fullname" . }}

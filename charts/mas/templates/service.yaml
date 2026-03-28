@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mas.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mas.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      name: http
+  selector:
+    {{- include "mas.selectorLabels" . | nindent 4 }}
