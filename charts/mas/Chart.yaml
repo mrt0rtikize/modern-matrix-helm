@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mas
+description: Matrix Authentication Service (MAS) — OIDC provider for Matrix/Synapse
+type: application
+version: 0.1.0
+appVersion: "latest"

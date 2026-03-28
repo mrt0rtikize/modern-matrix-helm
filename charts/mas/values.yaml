@@ -1,0 +1,105 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/element-hq/matrix-authentication-service
+  tag: 1.14.0
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+mas:
+  publicBaseUrl: https://auth.example.org/
+
+matrix:
+  homeserver: example.org
+  endpoint: http://chat-matrix:80
+
+account:
+  emailChangeAllowed: true
+  displaynameChangeAllowed: true
+  passwordRegistrationEnabled: true
+  passwordRegistrationEmailRequired: false
+  passwordChangeAllowed: true
+  passwordRecoveryEnabled: false
+  accountDeactivationAllowed: true
+
+# Sensitive values — set via --set or a separate secrets values file, never commit real values.
+secrets:
+  # openssl rand -hex 32
+  sharedSecret: ""
+  # openssl rand -hex 32
+  encryptionKey: ""
+  # openssl genrsa 4096
+  signingKeyPem: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  hosts:
+    - host: auth.example.org
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: mas-auth-tls
+      hosts:
+        - auth.example.org
+
+# Routes legacy Matrix login/logout/refresh on the Synapse domain to MAS.
+compatIngress:
+  enabled: true
+  className: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.priority: "100"
+  host: chat.example.org
+  tls:
+    - secretName: matrix-chat-tls
+      hosts:
+        - chat.example.org
+
+postgresql:
+  enabled: true
+  image: docker.io/bitnamilegacy/postgresql:16.4.0-debian-12-r14
+  database: mas
+  username: mas
+  # openssl rand -hex 16
+  password: ""
+  storage: 1Gi
+
+# One-shot migration job — disabled by default, enable only when running syn2mas.
+syn2mas:
+  enabled: false
+  # "migrate" or "check"
+  command: migrate
+  synapse:
+    serverName: example.org
+    db:
+      host: chat-postgresql
+      username: matrix
+      password: ""
+      database: matrix
+
+resources:
+  mas:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  postgresql:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
