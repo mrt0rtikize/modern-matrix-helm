@@ -10,6 +10,7 @@ Umbrella Helm chart that deploys a full, modern Matrix homeserver stack on Kuber
 | `mas` | local `charts/mas` | Matrix Authentication Service — OIDC provider replacing legacy password auth |
 | `rtc` | local `charts/rtc` | LiveKit JWT service + Redis for MatrixRTC / Element Call |
 | `static_wellknown` | local `charts/static_wellknown` | nginx serving `/.well-known/matrix/{server,client}` discovery endpoints |
+| `livekit-server` | [livekit/livekit-helm](https://github.com/livekit/livekit-helm) | LiveKit WebRTC SFU powering Element Call / MatrixRTC |
 
 ## Architecture
 
@@ -24,6 +25,7 @@ Traefik ingress
       │                            → MAS (mas chart)
       ├─► auth.example.org         → MAS OIDC endpoints
       ├─► rtc.example.org          → LiveKit JWT service (rtc chart)
+      ├─► livekit.example.org      → LiveKit SFU (livekit-server chart)
       └─► example.org/.well-known  → static_wellknown (nginx)
 
 Internal
@@ -31,22 +33,27 @@ Internal
       Synapse ──► PostgreSQL (bundled in matrix chart)
       MAS     ──► PostgreSQL (bundled in mas chart)
       rtc     ──► Redis (bundled in rtc chart)
+      rtc     ──► LiveKit SFU (livekit-server, in-cluster)
 ```
 
 ## Prerequisites
 
 - Kubernetes cluster with Traefik ingress controller
 - cert-manager with a `letsencrypt-production` ClusterIssuer
-- A running LiveKit SFU reachable from the cluster (external or self-hosted)
 - A TURN server reachable from clients — **not included in this chart**; run [coturn](https://github.com/coturn/coturn) separately on a host with a public IP
 
 ## Installation
 
 ```bash
-# 1. Fetch dependencies (downloads remram44/matrix chart into charts/)
+# 1. Add required Helm repositories
+helm repo add livekit https://helm.livekit.io
+helm repo add matrix https://remram44.github.io/matrix-helm
+helm repo update
+
+# 2. Fetch dependencies (downloads remote charts into charts/)
 helm dependency update
 
-# 2. Install with your secrets — never put real secrets in values.yaml
+# 3. Install with your secrets — never put real secrets in values.yaml
 helm install matrix-x . \
   --namespace matrix --create-namespace \
   -f values.yaml \
@@ -57,7 +64,8 @@ helm install matrix-x . \
   --set mas.secrets.signingKeyPem="$(openssl genrsa 4096)" \
   --set mas.postgresql.password="$(openssl rand -hex 16)" \
   --set rtc.livekit.key="<LIVEKIT_KEY>" \
-  --set rtc.livekit.secret="<LIVEKIT_SECRET>"
+  --set rtc.livekit.secret="<LIVEKIT_SECRET>" \
+  --set "livekit-server.livekit.keys.api_key=<LIVEKIT_KEY>:<LIVEKIT_SECRET>"
 ```
 
 > `matrix.homeserverConfig.matrix_authentication_service.secret` and `mas.secrets.sharedSecret` **must be identical**.
@@ -83,9 +91,10 @@ Replace every occurrence of `example.org` with your actual domain before deployi
 | `mas.matrix.homeserver` | Your Matrix server name (same as `matrix.homeserverConfig.server_name`) |
 | `mas.matrix.endpoint` | In-cluster URL of Synapse service |
 | `mas.ingress.hosts` / `mas.compatIngress.host` | MAS ingress hosts |
-| `rtc.livekit.url` | WebSocket URL of the LiveKit SFU |
+| `rtc.livekit.url` | WebSocket URL of the LiveKit SFU (in-cluster: `wss://livekit.example.org`) |
 | `rtc.livekit.fullAccessHomeservers` | Your Matrix server name |
 | `rtc.ingress.host` | RTC JWT service ingress host |
+| `livekit-server.ingress.hosts[0].host` | Public hostname of the LiveKit SFU |
 | `static_wellknown.wellKnown.*` | All `.well-known` discovery URLs |
 | `static_wellknown.ingress.host` | Well-known ingress host (bare domain) |
 
@@ -99,8 +108,9 @@ Replace every occurrence of `example.org` with your actual domain before deployi
 | `mas.secrets.encryptionKey` | `openssl rand -hex 32` |
 | `mas.secrets.signingKeyPem` | `openssl genrsa 4096` |
 | `mas.postgresql.password` | `openssl rand -hex 16` |
-| `rtc.livekit.key` | From your LiveKit server config |
-| `rtc.livekit.secret` | From your LiveKit server config |
+| `rtc.livekit.key` | Generate a random key name, e.g. `openssl rand -hex 8` |
+| `rtc.livekit.secret` | `openssl rand -hex 32` |
+| `livekit-server.livekit.keys.api_key` | `<same key>:<same secret>` (LiveKit expects `key: secret` map format) |
 
 ### TURN server (external — not part of this chart)
 
@@ -134,6 +144,7 @@ Both `matrix.homeserverConfig.matrix_authentication_service.secret` and `mas.sec
 ## Upgrading
 
 ```bash
+helm repo update
 helm dependency update
 helm upgrade matrix-x . --namespace matrix -f values.yaml --reuse-values \
   --set matrix.homeserverConfig.turn_shared_secret="<TURN_SECRET>" \
