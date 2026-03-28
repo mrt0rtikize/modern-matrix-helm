@@ -1,0 +1,30 @@
+# LiveKit SFU signaling (WebSocket) behind /livekit/sfu on rtc host.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matrixrtc-sfu
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rtc.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.certIssuer }}
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-rtc-strip-sfu@kubernetescrd
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tlsSecret }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /livekit/sfu
+            pathType: Prefix
+            backend:
+              service:
+                name: livekit-sfu
+                port:
+                  number: 80

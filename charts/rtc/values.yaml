@@ -1,0 +1,38 @@
+nameOverride: ""
+fullnameOverride: ""
+
+livekit:
+  url: wss://rtc.example.org/livekit/sfu
+  fullAccessHomeservers: example.org
+  # Set via --set or a separate secrets values file — never commit real values.
+  key: ""
+  secret: ""
+
+redis:
+  image:
+    repository: redis
+    tag: 7-alpine
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+jwtService:
+  image:
+    repository: ghcr.io/element-hq/lk-jwt-service
+    tag: "0.3.0"
+  pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+ingress:
+  className: traefik
+  host: rtc.example.org
+  tlsSecret: matrixrtc-rtc-tls
+  certIssuer: letsencrypt-production
