@@ -1,0 +1,46 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "static-wellknown.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "static-wellknown.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /.well-known/matrix/server
+            pathType: Exact
+            backend:
+              service:
+                name: {{ include "static-wellknown.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /.well-known/matrix
+            pathType: Exact
+            backend:
+              service:
+                name: {{ include "static-wellknown.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /.well-known/matrix/client
+            pathType: Exact
+            backend:
+              service:
+                name: {{ include "static-wellknown.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

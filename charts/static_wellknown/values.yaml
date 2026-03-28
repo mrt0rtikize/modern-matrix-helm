@@ -1,0 +1,41 @@
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: "1.27-alpine"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+wellKnown:
+  server:
+    host: "chat.example.org:443"
+  client:
+    homeserverBaseUrl: "https://chat.example.org"
+    rtcFociUrl: "https://rtc.example.org/livekit/jwt"
+    authIssuer: "https://auth.example.org/"
+    authAccount: "https://auth.example.org/account"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  host: example.org
+  tls:
+    secretName: matrix-wellknown-tls
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi

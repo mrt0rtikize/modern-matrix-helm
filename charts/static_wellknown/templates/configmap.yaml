@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "static-wellknown.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "static-wellknown.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log notice;
+    pid /tmp/nginx.pid;
+    events {
+      worker_connections 1024;
+    }
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      access_log /var/log/nginx/access.log;
+      server {
+        listen 80;
+        location = /.well-known/matrix/server {
+          default_type application/json;
+          return 200 '{"m.server": "{{ .Values.wellKnown.server.host }}"}\n';
+        }
+        location = /.well-known/matrix {
+          default_type application/json;
+          return 200 '{"m.server": "{{ .Values.wellKnown.server.host }}"}\n';
+        }
+        location = /.well-known/matrix/client {
+          default_type application/json;
+          add_header Access-Control-Allow-Origin * always;
+          add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+          add_header Access-Control-Allow-Headers "X-Requested-With, Content-Type, Authorization" always;
+          return 200 '{
+            "m.homeserver": {
+              "base_url": "{{ .Values.wellKnown.client.homeserverBaseUrl }}"
+            },
+            "org.matrix.msc4143.rtc_foci": [
+              {
+                "type": "livekit",
+                "livekit_service_url": "{{ .Values.wellKnown.client.rtcFociUrl }}"
+              }
+            ],
+            "org.matrix.msc2965.authentication": {
+              "issuer": "{{ .Values.wellKnown.client.authIssuer }}",
+              "account": "{{ .Values.wellKnown.client.authAccount }}"
+            }
+          }\n';
+        }
+        location / {
+          return 404;
+        }
+      }
+    }
